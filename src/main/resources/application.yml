@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: OneToOneChat
+  data:
+    mongodb:
+      host: localhost
+      port: 27017
+      database: chatApp
+      authentication-database: admin
+      username: haskar
+      password: haskar
+
+server:
+  port: 8080
