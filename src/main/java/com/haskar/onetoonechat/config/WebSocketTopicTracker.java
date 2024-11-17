@@ -1,6 +1,7 @@
 package com.haskar.onetoonechat.config;
 
 
+import com.haskar.onetoonechat.service.ConnectService;
 import com.haskar.onetoonechat.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
@@ -20,7 +21,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class WebSocketTopicTracker {
 
-    private final UserService userService;
+    private final ConnectService connectService;
 
 //    @EventListener
 //    public void handleSubscribeEvent(SessionSubscribeEvent event) {
@@ -37,10 +38,10 @@ public class WebSocketTopicTracker {
     @EventListener
     public void handleUnsubscribeEvent(SessionDisconnectEvent event) {
         SimpMessageHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
-        String user = (String) Objects.requireNonNull(headerAccessor.getSessionAttributes()).get("username");
+        String userId = (String) Objects.requireNonNull(headerAccessor.getSessionAttributes()).get("userId");
 
-        if (user != null) {
-            userService.disconnect(user);
+        if (userId != null) {
+            connectService.disconnect(userId);
         }
     }
 

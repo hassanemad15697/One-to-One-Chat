@@ -4,19 +4,18 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-@Document
-public class ChatRoom {
+import java.time.LocalDateTime;
+import java.util.Date;
 
-    @Id
-    private String id;
-    private String chatId;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class LastMessage {
+    private String content;
     private String senderId;
-    private String recipientId;
+    private Date timestamp;
 }

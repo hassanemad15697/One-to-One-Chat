@@ -1,6 +1,6 @@
 package com.haskar.onetoonechat.model;
 
-import com.haskar.onetoonechat.model.enums.MessageType;
+import com.haskar.onetoonechat.model.enums.FriendshipStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 
@@ -15,15 +16,13 @@ import java.util.Date;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "chat_messages")
-public class ChatMessage {
+@Document(collection = "friendships")
+public class Friendship {
 
     @Id
     private String id;
-    private String chatSessionId;
-    private String senderId;
-    private String recipientId;
-    private String content;
-    private Date timestamp;
-    private MessageType messageType;
+
+    private String userId1;
+    private String userId2;
+    private FriendshipStatus friendshipStatus;
 }

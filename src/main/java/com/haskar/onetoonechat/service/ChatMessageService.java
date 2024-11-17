@@ -1,14 +1,17 @@
 package com.haskar.onetoonechat.service;
 
+import com.haskar.onetoonechat.exception.ResourceNotFoundException;
 import com.haskar.onetoonechat.model.ChatMessage;
+import com.haskar.onetoonechat.model.ChatSession;
+import com.haskar.onetoonechat.model.LastMessage;
 import com.haskar.onetoonechat.respository.ChatMessageRepository;
+import com.haskar.onetoonechat.respository.ChatSessionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.Date;
 
 @Service
 @RequiredArgsConstructor
@@ -16,36 +19,29 @@ public class ChatMessageService {
 
 
     private final ChatMessageRepository chatMessageRepository;
-    private final ChatRoomService chatRoomService;
 
+    private final ChatSessionRepository chatSessionRepository;
 
-    public ChatMessage save(ChatMessage chatMessage){
-        String chatRoomId = chatRoomService.getChatRoomId(
-                chatMessage.getSenderId(),
-                chatMessage.getRecipientId(),
-                true)
-                .orElseThrow();
+    public ChatMessage createChatMessage(ChatMessage chatMessage) {
+        // Ensure chat session exists
+        ChatSession chatSession = chatSessionRepository.findById(chatMessage.getChatSessionId())
+                .orElseThrow(() -> new ResourceNotFoundException("ChatSession not found"));
+        chatMessage.setTimestamp(new Date());
+        ChatMessage savedMessage = chatMessageRepository.save(chatMessage);
 
-        chatMessage.setChatId(chatRoomId);
-        chatMessageRepository.save(chatMessage);
-        return chatMessage;
+        // Update lastMessage in ChatSession
+        LastMessage lastMessage = LastMessage.builder()
+                .content(chatMessage.getContent())
+                .senderId(chatMessage.getSenderId())
+                .timestamp(chatMessage.getTimestamp())
+                .build();
+        chatSession.setLastMessage(lastMessage);
+        chatSession.setUpdatedAt(new Date());
+        chatSessionRepository.save(chatSession);
+
+        return savedMessage;
     }
-
-    public List<ChatMessage> findChatMessages(String senderId , String recipientId){
-        String chatId = chatRoomService.getChatRoomId(
-                        senderId,
-                        recipientId,
-                        false)
-                .orElse(null);
-
-        if(Objects.isNull(chatId)){
-            return new ArrayList<>();
-        }
-
-        List<ChatMessage> chatMessages = chatMessageRepository.findByChatId(chatId);
-        if(Objects.isNull(chatMessages) || chatMessages.isEmpty()) {
-            return new ArrayList<>();
-        }
-        return chatMessages;
+    public Page<ChatMessage> getChatMessages(String chatId, Pageable pageable) {
+        return chatMessageRepository.findByChatSessionId(chatId, pageable);
     }
 }
