@@ -7,9 +7,12 @@ let currentChatSessionId = null;
 let currentRecipientId = null;
 let messagesPage = 0;
 const messagesPageSize = 30;
+let hasMoreMessages = true;
 let chatSessionsPage = 0;
 const chatSessionsPageSize = 10;
-let hasMoreMessages = true;
+let hasMoreChatSessions = true;
+
+const userCache = {};
 
 // Initialize DOM Elements
 const allChat = document.getElementById('allChat');
@@ -18,6 +21,8 @@ const messageInput = document.getElementById('messageInput');
 const sendMessageBtn = document.getElementById('sendMessageBtn');
 const sideMenu = document.getElementById('SideMenu');
 const overlay = document.getElementById('overlay');
+const searchInput = document.getElementById('searchInput');
+const searchResults = document.getElementById('searchResults');
 
 // Event Listener for Login
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -35,7 +40,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
                 document.getElementById('loginContainer').style.display = 'none';
                 document.getElementById('mainContainer').style.display = 'flex';
                 // Update current user info
-                document.getElementById('currentUser').querySelector('img').src = 'images/img-04.jpg'; // Replace with actual user image
+                document.getElementById('currentUser').querySelector('img').src = 'images/default-user.jpg'; // Replace with actual user image
                 document.getElementById('currentUsername').querySelector('span').textContent = currentUser.fullName;
                 // Fetch chat sessions
                 chatSessionsPage = 0; // Reset chat sessions page
@@ -57,7 +62,7 @@ function connectWebSocket() {
 
     stompClient.connect({}, (frame) => {
         console.log('Connected:', frame);
-        // Subscribe to user-specific topic
+        // Subscribe to user-specific topic with user ID
         stompClient.subscribe(`/user/${currentUser.id}/queue/messages`, onMessageReceived);
         // Notify server that user is online
         stompClient.send('/app/user.connectUser', {}, JSON.stringify(currentUser));
@@ -96,7 +101,7 @@ function handleIncomingChatMessage(message) {
 
 // Function to Handle Notifications
 function handleNotification(message) {
-    // Display notification to the user (you can customize this)
+    // Display notification to the user (customize as needed)
     alert(`Notification: ${message.content}`);
 }
 
@@ -109,18 +114,15 @@ function handleUserStatusChange(message) {
 // Function to Load Chat Sessions
 async function loadChatSessions(page = 0) {
     try {
-        console.log('Fetching chat sessions.');
         const response = await fetch(`/chat-session/all/${currentUser.id}?page=${page}&size=${chatSessionsPageSize}`);
         if (response.ok) {
             const chatSessions = await response.json();
-            console.log('Chat Sessions Response:', chatSessions);
             displayChatSessions(chatSessions, page);
 
             // Open the first chat session by default on initial load
             if (page === 0) {
                 const sessionsArray = chatSessions.content || chatSessions;
                 if (sessionsArray.length > 0) {
-                    // Open the first chat session
                     const firstSession = sessionsArray[0];
                     currentChatSessionId = firstSession.id;
                     messagesPage = 0; // Reset messages page
@@ -134,6 +136,14 @@ async function loadChatSessions(page = 0) {
                     // No chat sessions available
                     displayNoChatsMessage();
                 }
+            }
+
+            // Update hasMoreChatSessions flag
+            if (chatSessions.last !== undefined) {
+                hasMoreChatSessions = !chatSessions.last;
+            } else {
+                const sessionsArray = chatSessions.content || chatSessions;
+                hasMoreChatSessions = sessionsArray.length === chatSessionsPageSize;
             }
         } else {
             console.error('Failed to fetch chat sessions.');
@@ -174,7 +184,8 @@ function createChatItem(session) {
     const chatItem = document.createElement('div');
     chatItem.classList.add('chat');
     chatItem.setAttribute('data-chat-session-id', session.id);
-    chatItem.setAttribute('data-participant-id', getChatPartnerId(session.participantsIds));
+    const partnerId = getChatPartnerId(session.participantsIds);
+    chatItem.setAttribute('data-participant-id', partnerId);
 
     const img = document.createElement('img');
     img.src = 'images/default-user.jpg'; // Replace with actual user image if available
@@ -188,19 +199,24 @@ function createChatItem(session) {
 
     const lastMessageP = document.createElement('p');
     lastMessageP.classList.add('chat-last-message');
-    lastMessageP.textContent = session.lastMessage ? session.lastMessage.content : 'No messages yet';
+
+    // Ensure lastMessage is of type 'MESSAGE'
+    const lastMessage = session.lastMessage ? session.lastMessage : null;
+
+    console.log("lastMessage: "+lastMessage)
+    lastMessageP.textContent = lastMessage ? lastMessage.content : 'No messages yet';
 
     infoDiv.appendChild(nameP);
     infoDiv.appendChild(lastMessageP);
 
     const timeSpan = document.createElement('span');
     timeSpan.classList.add('chat-time');
-    timeSpan.textContent = session.lastMessage ? new Date(session.lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    timeSpan.textContent = lastMessage ? new Date(lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
     // Create status indicator
     const statusIndicator = document.createElement('span');
     statusIndicator.classList.add('status-indicator');
-    statusIndicator.style.backgroundColor = 'red'; // Default to offline (red)
+    statusIndicator.style.backgroundColor = session.partnerStatus === 'ONLINE' ? 'green' : 'red';
 
     chatItem.appendChild(img);
     chatItem.appendChild(infoDiv);
@@ -208,15 +224,11 @@ function createChatItem(session) {
     chatItem.appendChild(statusIndicator); // Append status indicator to chat item
 
     // Fetch partner user data to update name
-    const partnerId = getChatPartnerId(session.participantsIds);
-    fetch(`/user/${partnerId}`)
-        .then(response => response.json())
+    getUserData(partnerId)
         .then(user => {
             nameP.textContent = user.fullName;
             // Update image if user has one
             // img.src = user.profileImage || 'images/default-user.jpg';
-            // Optionally, fetch and set initial online status
-            // updateUserStatusInChatList(partnerId, user.status);
         })
         .catch(error => console.error('Error fetching user data:', error));
 
@@ -253,8 +265,7 @@ function updateChatHeader(session) {
     currentRecipientId = partnerId;
 
     // Fetch partner user data
-    fetch(`/user/${partnerId}`)
-        .then(response => response.json())
+    getUserData(partnerId)
         .then(user => {
             chatUserImage.src = 'images/default-user.jpg'; // Replace with actual user image
             chatUserName.textContent = user.fullName;
@@ -268,7 +279,6 @@ async function loadChatMessages(chatSessionId, page = 0) {
         const response = await fetch(`/message/${chatSessionId}?page=${page}&size=${messagesPageSize}`);
         if (response.ok) {
             const messages = await response.json();
-            console.log('Messages Response:', messages);
             displayChatMessages(messages, page);
         } else {
             console.error('Failed to fetch chat messages.');
@@ -282,10 +292,13 @@ async function loadChatMessages(chatSessionId, page = 0) {
 function displayChatMessages(messages, page) {
     const messagesArray = messages.content || messages;
 
+    // Filter messages to only include messages of type 'MESSAGE'
+    const filteredMessages = messagesArray.filter(msg => msg.messageType === 'MESSAGE');
+
     if (page === 0) {
         allChat.innerHTML = '';
         // Reverse messages to display from oldest to newest
-        messagesArray.reverse().forEach(message => {
+        filteredMessages.reverse().forEach(message => {
             displayChatMessage(message, false);
         });
         // Scroll to bottom on first load
@@ -296,7 +309,7 @@ function displayChatMessages(messages, page) {
         const scrollTopBefore = allChat.scrollTop;
 
         // Reverse messages to display from oldest to newest
-        messagesArray.reverse().forEach(message => {
+        filteredMessages.reverse().forEach(message => {
             displayChatMessage(message, false, true);
         });
 
@@ -308,11 +321,18 @@ function displayChatMessages(messages, page) {
     // Update hasMoreMessages flag
     if (messages.last !== undefined) {
         hasMoreMessages = !messages.last;
+    } else {
+        hasMoreMessages = filteredMessages.length === messagesPageSize;
     }
 }
 
 // Function to Display a Single Chat Message
 function displayChatMessage(message, scrollToBottom = true, prepend = false) {
+    if (message.messageType !== 'MESSAGE') {
+        // Do not display messages that are not of type 'MESSAGE'
+        return;
+    }
+
     const chatBox = document.createElement('div');
     chatBox.classList.add('chat-box');
     if (message.senderId === currentUser.id) {
@@ -320,13 +340,14 @@ function displayChatMessage(message, scrollToBottom = true, prepend = false) {
     }
 
     const img = document.createElement('img');
-    img.src = message.senderId === currentUser.id ? 'images/img-04.jpg' : 'images/default-user.jpg'; // Update with actual images
+    img.src = message.senderId === currentUser.id ? 'images/default-user.jpg' : 'images/default-user.jpg'; // Update with actual images
 
     const chatTxt = document.createElement('div');
     chatTxt.classList.add('chat-txt');
 
     const h4 = document.createElement('h4');
-    h4.textContent = message.senderId === currentUser.id ? 'You' : 'Partner';
+    const senderName = message.senderId === currentUser.id ? 'You' : (userCache[message.senderId] ? userCache[message.senderId].fullName : 'Partner');
+    h4.textContent = senderName;
 
     const span = document.createElement('span');
     span.textContent = ` • ${new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
@@ -385,6 +406,11 @@ function sendMessage() {
 
 // Function to Update Chat Session in List
 function updateChatSessionInList(message) {
+    if (message.messageType !== 'MESSAGE') {
+        // Do not update the chat session list if the message is not of type 'MESSAGE'
+        return;
+    }
+
     const chatItems = chatSec.querySelectorAll('.chat');
     let chatItem = null;
 
@@ -405,7 +431,8 @@ function updateChatSessionInList(message) {
         const newChatSession = {
             id: message.chatSessionId,
             participantsIds: [currentUser.id, message.senderId],
-            lastMessage: { content: message.content, timestamp: message.timestamp }
+            lastMessage: message,
+            partnerStatus: 'ONLINE' // Assuming partner is online when sending a message
         };
         const newChatItem = createChatItem(newChatSession);
         chatSec.insertBefore(newChatItem, chatSec.firstChild);
@@ -445,9 +472,6 @@ overlay.addEventListener('click', () => {
 });
 
 // Search Functionality
-const searchInput = document.getElementById('searchInput');
-const searchResults = document.getElementById('searchResults');
-
 searchInput.addEventListener('input', () => {
     const query = searchInput.value.trim();
     if (query === '') {
@@ -616,4 +640,32 @@ async function sendFriendRequest(participantId) {
     }
 }
 
-// Infinite Scroll for M
+// Function to Fetch User Data with Caching
+function getUserData(userId) {
+    if (userCache[userId]) {
+        return Promise.resolve(userCache[userId]);
+    } else {
+        return fetch(`/user/${userId}`)
+            .then(response => response.json())
+            .then(user => {
+                userCache[userId] = user;
+                return user;
+            });
+    }
+}
+
+// Event Listener for Infinite Scroll in Messages
+allChat.addEventListener('scroll', async () => {
+    if (allChat.scrollTop === 0 && hasMoreMessages) {
+        messagesPage++;
+        await loadChatMessages(currentChatSessionId, messagesPage);
+    }
+});
+
+// Event Listener for Infinite Scroll in Chat Sessions
+chatSec.addEventListener('scroll', async () => {
+    if (chatSec.scrollTop + chatSec.clientHeight >= chatSec.scrollHeight - 5 && hasMoreChatSessions) {
+        chatSessionsPage++;
+        await loadChatSessions(chatSessionsPage);
+    }
+});

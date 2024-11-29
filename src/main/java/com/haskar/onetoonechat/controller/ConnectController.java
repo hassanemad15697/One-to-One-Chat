@@ -19,7 +19,7 @@ public class ConnectController {
 
     private final ConnectService connectService;
     @MessageMapping("/user.connectUser")
-    public void addUser(@Payload User user, SimpMessageHeaderAccessor accessor) {
+    public void connectUser(@Payload User user, SimpMessageHeaderAccessor accessor) {
         connectService.connect(user, accessor);
     }
 

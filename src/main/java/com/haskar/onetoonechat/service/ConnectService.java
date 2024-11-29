@@ -4,6 +4,7 @@ import com.haskar.onetoonechat.model.ChatMessage;
 import com.haskar.onetoonechat.model.ChatSession;
 import com.haskar.onetoonechat.model.User;
 import com.haskar.onetoonechat.model.enums.MessageType;
+import com.haskar.onetoonechat.response.ChatSessionResponse;
 import com.haskar.onetoonechat.respository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +14,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -54,9 +56,9 @@ public class ConnectService {
     }
 
     private void notifyOnlineFriends(String user, String STATUS) {
-        Page<ChatSession> userChatSessions = chatSessionService.getPrivateUserChatSessions(user, null);
+        List<ChatSessionResponse> userChatSessions = chatSessionService.getPrivateUserChatSessions(user);
         if(!userChatSessions.isEmpty()){
-            userChatSessions.get().forEach(chatSession -> {
+            userChatSessions.forEach(chatSession -> {
                 chatSession.getParticipantsIds().forEach(participant -> {
                     boolean isOnline = ONLINE.equals(userService.getUserStatus(participant));
                     if (isOnline) {
@@ -65,7 +67,7 @@ public class ConnectService {
                                         .builder()
                                         .messageType(MessageType.ONLINE_OFFLINE)
                                         .chatSessionId(chatSession.getId())
-                                        .senderId(chatSession.getUserId())
+                                        .senderId(user)
                                         .recipientId(participant)
                                         .timestamp(new Date())
                                         .content(STATUS)

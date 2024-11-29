@@ -65,6 +65,7 @@ h2, h3 {
     display: flex;
     align-items: center;
     margin-bottom: 1rem;
+    cursor: pointer; /* Added to indicate clickability on mobile */
 }
 
 .current-user img {
@@ -96,6 +97,9 @@ h2, h3 {
     display: flex;
     align-items: center;
     margin-bottom: 0.5rem;
+    background-color: #332F54;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
 }
 
 .result-item img {
@@ -166,7 +170,7 @@ h2, h3 {
 
 .chat-time {
     color: #9386a2;
-    font-size: 0.75rem; /* Smaller font size */
+    font-size: 0.75rem;
     position: absolute;
     top: 0.5rem;
     right: 1rem;
@@ -214,6 +218,7 @@ h2, h3 {
     overflow-y: auto;
     padding: 1rem;
     background-color: #1E1B29;
+    scroll-behavior: smooth; /* Added for smooth scrolling */
 }
 
 /* Message Input Area */
@@ -262,6 +267,7 @@ h2, h3 {
     padding: 0.5rem;
     border-radius: 0.5rem;
     margin-left: 0.5rem;
+    color: #E2D3F4;
 }
 
 .chat-box.my-message {
@@ -364,3 +370,4 @@ h2, h3 {
         padding: 1rem 2rem;
     }
 }
+

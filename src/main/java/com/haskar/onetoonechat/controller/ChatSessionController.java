@@ -1,6 +1,7 @@
 package com.haskar.onetoonechat.controller;
 
 import com.haskar.onetoonechat.model.ChatSession;
+import com.haskar.onetoonechat.response.ChatSessionResponse;
 import com.haskar.onetoonechat.service.ChatSessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -17,17 +18,17 @@ public class ChatSessionController {
 
     // Create ChatSession
     @PostMapping
-    public ResponseEntity<ChatSession> getChatSessionOrCreateIfMissing(@RequestBody ChatSession chatSession) {
-        ChatSession createdChatSession = chatSessionService.getChatSessionOrCreateIfMissing(chatSession);
+    public ResponseEntity<ChatSessionResponse> getChatSessionOrCreateIfMissing(@RequestBody ChatSession chatSession) {
+        ChatSessionResponse createdChatSession = chatSessionService.getChatSessionOrCreateIfMissing(chatSession);
         return ResponseEntity.ok(createdChatSession);
     }
 
     // Get ChatSessions for User
     @GetMapping("/all/{userId}")
-    public ResponseEntity<Page<ChatSession>> getUserChatSessions(
+    public ResponseEntity<Page<ChatSessionResponse>> getUserChatSessions(
             @PathVariable("userId") String userId,
             Pageable pageable) {
-        Page<ChatSession> chatSessions = chatSessionService.getUserChatSessions(userId, pageable);
+        Page<ChatSessionResponse> chatSessions = chatSessionService.getUserChatSessions(userId, pageable);
         return ResponseEntity.ok(chatSessions);
     }
 

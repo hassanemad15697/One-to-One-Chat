@@ -12,9 +12,6 @@ import java.util.Optional;
 
 @Repository
 public interface ChatSessionRepository extends MongoRepository<ChatSession, String> {
-
-    Page<ChatSession> findByUserIdOrderByUpdatedAtDesc(String userId, Pageable pageable);
-    Page<ChatSession> findByUserIdAndChatTypeOrderByUpdatedAtDesc(String userId, ChatType chatType, Pageable pageable);
-//    Page<ChatSession> findByParticipantsContaining(String userId, Pageable pageable);
-//    public Optional<ChatSession> findBySenderIdAndRecipientId(String senderId , String recipientId);
+    Page<ChatSession> findByParticipantsIdsContainingOrderByUpdatedAtDesc(String userId,Pageable pageable);
+    List<ChatSession> findByParticipantsIdsContainingAndChatTypeOrderByUpdatedAtDesc(String userId, ChatType chatType);
 }
