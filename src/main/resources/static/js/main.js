@@ -34,20 +34,45 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             const response = await fetch(`/user/by-username/${encodeURIComponent(username)}`);
             if (response.ok) {
                 currentUser = await response.json();
-                // Initialize WebSocket connection
-                connectWebSocket();
-                // Hide login, show chat interface
-                document.getElementById('loginContainer').style.display = 'none';
-                document.getElementById('mainContainer').style.display = 'flex';
-                // Update current user info
-                document.getElementById('currentUser').querySelector('img').src = 'images/default-user.jpg'; // Replace with actual user image
-                document.getElementById('currentUsername').querySelector('span').textContent = currentUser.fullName;
-                // Fetch chat sessions
-                chatSessionsPage = 0; // Reset chat sessions page
-                await loadChatSessions(chatSessionsPage);
+            } else if (response.status === 404) {
+                // Offer to sign up if user does not exist
+                const shouldSignUp = confirm('User not found. Would you like to sign up with this nickname?');
+                if (shouldSignUp) {
+                    const signUpBody = {
+                        fullName: username,
+                        nickName: username,
+                        email: `${username}@example.com`
+                    };
+                    const signUpResp = await fetch('/user', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(signUpBody)
+                    });
+                    if (signUpResp.ok) {
+                        currentUser = await signUpResp.json();
+                    } else {
+                        alert('Failed to sign up.');
+                        return;
+                    }
+                } else {
+                    return;
+                }
             } else {
-                alert('User not found.');
+                alert('Failed to log in.');
+                return;
             }
+
+            // Initialize WebSocket connection
+            connectWebSocket();
+            // Hide login, show chat interface
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('mainContainer').style.display = 'flex';
+            // Update current user info
+            document.getElementById('currentUser').querySelector('img').src = 'images/default-user.jpg'; // Replace with actual user image
+            document.getElementById('currentUsername').querySelector('span').textContent = currentUser.fullName;
+            // Fetch chat sessions
+            chatSessionsPage = 0; // Reset chat sessions page
+            await loadChatSessions(chatSessionsPage);
         } catch (error) {
             console.error('Error fetching user data:', error);
             alert('An error occurred during login.');
@@ -667,5 +692,17 @@ chatSec.addEventListener('scroll', async () => {
     if (chatSec.scrollTop + chatSec.clientHeight >= chatSec.scrollHeight - 5 && hasMoreChatSessions) {
         chatSessionsPage++;
         await loadChatSessions(chatSessionsPage);
+    }
+});
+
+// Notify server when the page is closed or refreshed
+window.addEventListener('beforeunload', () => {
+    if (stompClient && currentUser) {
+        try {
+            stompClient.send('/app/user.disconnectUser', {}, JSON.stringify(currentUser));
+            stompClient.disconnect();
+        } catch (e) {
+            console.error('Error during disconnect', e);
+        }
     }
 });
