@@ -23,7 +23,7 @@ public class ChatMessageController {
 
         simpMessagingTemplate.convertAndSendToUser(
                 message.getRecipientId(), "/queue/messages",
-                chatMessage
+                message
         );
     }
 

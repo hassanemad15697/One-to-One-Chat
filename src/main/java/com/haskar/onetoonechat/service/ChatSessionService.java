@@ -1,7 +1,6 @@
 package com.haskar.onetoonechat.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.haskar.onetoonechat.exception.ResourceNotFoundException;
 import com.haskar.onetoonechat.model.ChatSession;
 import com.haskar.onetoonechat.model.enums.ChatType;
 import com.haskar.onetoonechat.model.enums.Status;
@@ -59,17 +58,33 @@ public class ChatSessionService {
         if (Objects.isNull(chatSession.getId())) {
             result = saveChatSession(chatSession);
         } else {
-            result = chatSessionRepository.findById(chatSession.getId()).orElse(null);
+            result = chatSessionRepository.findById(chatSession.getId())
+                    .orElseGet(() -> saveChatSession(chatSession));
         }
 
         return mapToChatSessionResponse(result, null);
     }
 
     private ChatSession saveChatSession(ChatSession chatSession) {
-        chatSession.setCreatedAt(new Date());
-        chatSession.setUpdatedAt(new Date());
+        Set<String> participantsIds = chatSession.getParticipantsIds();
+        if (Objects.nonNull(participantsIds) && !participantsIds.isEmpty()) {
+            if (ChatType.PERSONAL.equals(chatSession.getChatType()) && participantsIds.size() == 2) {
+                Iterator<String> iterator = participantsIds.iterator();
+                String participantA = iterator.next();
+                String participantB = iterator.next();
 
-        if (Objects.nonNull(chatSession.getParticipantsIds()) && !chatSession.getParticipantsIds().isEmpty()) {
+                Optional<ChatSession> existingSession = chatSessionRepository
+                        .findFirstByParticipantsIdsContainsAndParticipantsIdsContainsAndChatType(
+                                participantA, participantB, ChatType.PERSONAL)
+                        .filter(session -> Objects.nonNull(session.getParticipantsIds()) && session.getParticipantsIds().size() == 2);
+
+                if (existingSession.isPresent()) {
+                    return existingSession.get();
+                }
+            }
+
+            chatSession.setCreatedAt(new Date());
+            chatSession.setUpdatedAt(new Date());
             chatSession.setId(null);
             return chatSessionRepository.save(chatSession);
         }

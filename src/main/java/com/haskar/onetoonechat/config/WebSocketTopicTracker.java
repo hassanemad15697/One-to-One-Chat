@@ -2,20 +2,14 @@ package com.haskar.onetoonechat.config;
 
 
 import com.haskar.onetoonechat.service.ConnectService;
-import com.haskar.onetoonechat.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
-import org.springframework.web.socket.messaging.SessionSubscribeEvent;
-import org.springframework.web.socket.messaging.SessionUnsubscribeEvent;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -36,13 +30,18 @@ public class WebSocketTopicTracker {
 //    }
 
     @EventListener
-    public void handleUnsubscribeEvent(SessionDisconnectEvent event) {
+    public void handleDisconnectEvent(SessionDisconnectEvent event) {
         SimpMessageHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
-        String userId = (String) Objects.requireNonNull(headerAccessor.getSessionAttributes()).get("userId");
-
-        if (userId != null) {
-            connectService.disconnect(userId);
+        Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
+        if (sessionAttributes == null) {
+            return;
         }
+        Object userIdObj = sessionAttributes.get("userId");
+        if (!(userIdObj instanceof String userId) || userId.isBlank()) {
+            return;
+        }
+
+        connectService.disconnect(userId);
     }
 
 }

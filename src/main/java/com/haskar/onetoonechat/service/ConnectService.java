@@ -1,21 +1,18 @@
 package com.haskar.onetoonechat.service;
 
 import com.haskar.onetoonechat.model.ChatMessage;
-import com.haskar.onetoonechat.model.ChatSession;
 import com.haskar.onetoonechat.model.User;
 import com.haskar.onetoonechat.model.enums.MessageType;
 import com.haskar.onetoonechat.response.ChatSessionResponse;
 import com.haskar.onetoonechat.respository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.haskar.onetoonechat.model.enums.Status.OFFLINE;
@@ -49,7 +46,9 @@ public class ConnectService {
         foundUser.ifPresent(usr -> {
             usr.setStatus(ONLINE);
             userRepository.save(usr);
-            Objects.requireNonNull(accessor.getSessionAttributes()).put("userId", usr.getId());
+            if (accessor.getSessionAttributes() != null) {
+                accessor.getSessionAttributes().put("userId", usr.getId());
+            }
             notifyOnlineFriends(user.getId(), ONLINE_STATUS);
         });
 
@@ -60,6 +59,9 @@ public class ConnectService {
         if(!userChatSessions.isEmpty()){
             userChatSessions.forEach(chatSession -> {
                 chatSession.getParticipantsIds().forEach(participant -> {
+                    if (participant.equals(user)) {
+                        return;
+                    }
                     boolean isOnline = ONLINE.equals(userService.getUserStatus(participant));
                     if (isOnline) {
                         ChatMessage message = chatMessageService.createChatMessage(
